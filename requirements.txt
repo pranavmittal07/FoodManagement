@@ -1,5 +1,8 @@
 streamlit
 pandas
-pymongo
 scikit-learn
+joblib
 numpy
+pymongo
+bson
+xgboost
