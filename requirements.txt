@@ -6,3 +6,4 @@ numpy
 pymongo
 bson
 xgboost
+seaborn
