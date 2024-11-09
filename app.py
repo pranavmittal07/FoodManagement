@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+import joblib  # To load the model
+import numpy as np
 from pymongo import MongoClient
 from bson import ObjectId
 from sklearn.ensemble import RandomForestRegressor, VotingRegressor
@@ -9,6 +12,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 import numpy as np
+import joblib  # To save the model
 
 # MongoDB connection URI
 uri = "mongodb+srv://UserP:MGSdJSmOtRMJ33Er@cluster0.itxnkx2.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
@@ -40,39 +44,21 @@ df['date'] = pd.to_datetime(df['date'], errors='coerce')
 df['day_of_week'] = df['date'].dt.day_name()
 df['day_of_week_numeric'] = LabelEncoder().fit_transform(df['day_of_week'])
 
-# Feature preprocessing
-X = df[['restaurant_id', 'day_of_week_numeric', 'is_holiday', 'weather_score', 'event_indicator', 
-        'flour_consumed', 'rice_consumed', 'pulses_consumed', 'vegetables_consumed', 'seating_capacity']]
-y = df[['attendance', 'flour_prepared', 'rice_prepared', 'pulses_prepared', 'vegetables_prepared']]
-
-categorical_features = ['weather_score', 'restaurant_id']
-numeric_features = ['day_of_week_numeric', 'is_holiday', 'event_indicator', 'flour_consumed', 
-                    'rice_consumed', 'pulses_consumed', 'vegetables_consumed', 'seating_capacity']
-
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features),
-        ('num', StandardScaler(), numeric_features)
-    ]
-)
-
-# Models and pipeline
-xgb = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42)
-rf = RandomForestRegressor(n_estimators=100, max_depth=5, random_state=42)
-ensemble_model = Pipeline(steps=[
-    ('preprocessor', preprocessor),
-    ('regressor', MultiOutputRegressor(VotingRegressor([('xgb', xgb), ('rf', rf)])))
-])
-
-# Model training
-ensemble_model.fit(X, y)
+# Load the pre-trained model
+try:
+    ensemble_model = joblib.load('restaurant_operations_model.pkl')
+    st.write("### Loaded the pre-trained model successfully!")
+except FileNotFoundError:
+    st.write("Model not found. Please train and save the model first.")
 
 # Streamlit UI
-
 st.title("Restaurant Operations Prediction")
 
+
+restaurant_ids = df['restaurant_id'].unique()
+
 # Input fields
-restaurant_id = st.selectbox("Select Restaurant ID", df['restaurant_id'].unique())
+restaurant_id = st.selectbox("Select Restaurant ID", restaurant_ids)
 day_of_week = st.selectbox("Select Day of Week", df['day_of_week'].unique())
 is_holiday = st.selectbox("Is it a Holiday?", [1, 0])
 weather_score = st.selectbox("Weather Score", ["sunny", "rainy", "snowy", "overcast"])
@@ -110,4 +96,3 @@ if st.button("Predict"):
     st.write(f"Predicted Rice Prepared: {prediction[0][2]}")
     st.write(f"Predicted Pulses Prepared: {prediction[0][3]}")
     st.write(f"Predicted Vegetables Prepared: {prediction[0][4]}")
-
